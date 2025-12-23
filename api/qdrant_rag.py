@@ -61,16 +61,21 @@ class QdrantRAG:
         """Convert text to embedding vector using Google's embedding service"""
         try:
             # Use Google's embedding API
-            result = genai.embed_content(
+            response = genai.embed_content(
                 model="models/embedding-001",
                 content=[text],
                 task_type="semantic_similarity"
             )
-            # Extract the embedding vector - the API returns a dict with 'embedding' key
-            # which contains a list of embeddings, and each embedding is a list of floats
-            embeddings = result['embedding']
-            # Return the first embedding (for the first text in our content list)
-            return embeddings[0]
+            # The API returns a dictionary with 'embedding' key
+            # The value is the embedding vector as a list of floats
+            return response.embedding
+        except AttributeError:
+            # Handle case where response is dict-style
+            if hasattr(response, '__getitem__') and 'embedding' in response:
+                return response['embedding']
+            else:
+                logger.error(f"Unexpected API response format: {type(response)}")
+                raise ValueError(f"Unexpected API response format: {response}")
         except Exception as e:
             logger.error(f"Error embedding text: {str(e)}")
             raise
