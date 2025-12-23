@@ -2,7 +2,7 @@ import os
 from typing import List, Dict, Any, Optional
 from qdrant_client import QdrantClient
 from qdrant_client.http.models import PointStruct, VectorParams, Distance, SearchParams, Filter, FieldCondition, MatchValue
-from sentence_transformers import SentenceTransformer
+import google.generativeai as genai
 import logging
 import numpy as np
 
@@ -22,8 +22,13 @@ class QdrantRAG:
             # If using local instance, you might need to set https=False
         )
 
-        # Initialize embedding model
-        self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+        # Initialize Google Generative AI
+        api_key = os.getenv("GEMINI_API_KEY")
+        if api_key:
+            genai.configure(api_key=api_key)
+            logger.info("Google Generative AI configured")
+        else:
+            raise ValueError("GEMINI_API_KEY environment variable not set")
 
         # Collection name
         self.collection_name = "books"
@@ -40,10 +45,10 @@ class QdrantRAG:
 
             if self.collection_name not in collection_names:
                 # Create collection with appropriate vector size
-                # Using all-MiniLM-L6-v2 which produces 384-dimensional vectors
+                # Google's embedding-001 model produces 768-dimensional vectors
                 self.client.create_collection(
                     collection_name=self.collection_name,
-                    vectors_config=VectorParams(size=384, distance=Distance.COSINE)
+                    vectors_config=VectorParams(size=768, distance=Distance.COSINE)
                 )
                 logger.info(f"Created collection: {self.collection_name}")
             else:
@@ -53,11 +58,19 @@ class QdrantRAG:
             raise
 
     def embed_text(self, text: str) -> List[float]:
-        """Convert text to embedding vector"""
+        """Convert text to embedding vector using Google's embedding service"""
         try:
-            embedding = self.embedding_model.encode([text])
-            # Convert to list of floats for JSON serialization
-            return embedding[0].tolist()
+            # Use Google's embedding API
+            result = genai.embed_content(
+                model="models/embedding-001",
+                content=[text],
+                task_type="semantic_similarity"
+            )
+            # Extract the embedding vector - the API returns a dict with 'embedding' key
+            # which contains a list of embeddings, and each embedding is a list of floats
+            embeddings = result['embedding']
+            # Return the first embedding (for the first text in our content list)
+            return embeddings[0]
         except Exception as e:
             logger.error(f"Error embedding text: {str(e)}")
             raise
