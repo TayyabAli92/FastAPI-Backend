@@ -1,0 +1,27 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/chat.py",
+      "use": "@vercel/python",
+      "config": {
+        "runtime": "python3.9"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/chat",
+      "dest": "api/chat.py"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "api/chat.py"
+    }
+  ],
+  "env": {
+    "GEMINI_API_KEY": "$GEMINI_API_KEY",
+    "QDRANT_URL": "$QDRANT_URL",
+    "QDRANT_API_KEY": "$QDRANT_API_KEY"
+  }
+}

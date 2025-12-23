@@ -1,0 +1,22 @@
+name: "Book RAG Agent"
+description: "A RAG agent for querying robotics book content using OpenAI Agents SDK and Gemini 2.5 Flash"
+src: https://github.com/your-username/book-rag-agent
+license: apache-2.0
+python_version: "3.10"
+tags:
+  - rag
+  - ai
+  - chatbot
+  - robotics
+  - qdrant
+  - gemini
+  - openai-agents
+models:
+  - google/gemma-2b
+  - openai/agents-sdk
+
+# Environment variables that need to be set
+secrets:
+  - QDRANT_URL
+  - QDRANT_API_KEY
+  - GEMINI_API_KEY

@@ -1,0 +1,151 @@
+import os
+from typing import List, Dict, Any, Optional
+from qdrant_client import QdrantClient
+from qdrant_client.http.models import PointStruct, VectorParams, Distance, SearchParams, Filter, FieldCondition, MatchValue
+from sentence_transformers import SentenceTransformer
+import logging
+import numpy as np
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+class QdrantRAG:
+    """Qdrant integration for RAG functionality"""
+
+    def __init__(self):
+        # Initialize Qdrant client
+        self.client = QdrantClient(
+            url=os.getenv("QDRANT_URL"),
+            api_key=os.getenv("QDRANT_API_KEY"),
+            # If using cloud, https is enabled by default
+            # If using local instance, you might need to set https=False
+        )
+
+        # Initialize embedding model
+        self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+
+        # Collection name
+        self.collection_name = "books"
+
+        # Create collection if it doesn't exist
+        self._ensure_collection_exists()
+
+    def _ensure_collection_exists(self):
+        """Ensure the collection exists with proper configuration"""
+        try:
+            # Check if collection exists
+            collections = self.client.get_collections()
+            collection_names = [col.name for col in collections.collections]
+
+            if self.collection_name not in collection_names:
+                # Create collection with appropriate vector size
+                # Using all-MiniLM-L6-v2 which produces 384-dimensional vectors
+                self.client.create_collection(
+                    collection_name=self.collection_name,
+                    vectors_config=VectorParams(size=384, distance=Distance.COSINE)
+                )
+                logger.info(f"Created collection: {self.collection_name}")
+            else:
+                logger.info(f"Collection {self.collection_name} already exists")
+        except Exception as e:
+            logger.error(f"Error ensuring collection exists: {str(e)}")
+            raise
+
+    def embed_text(self, text: str) -> List[float]:
+        """Convert text to embedding vector"""
+        try:
+            embedding = self.embedding_model.encode([text])
+            # Convert to list of floats for JSON serialization
+            return embedding[0].tolist()
+        except Exception as e:
+            logger.error(f"Error embedding text: {str(e)}")
+            raise
+
+    def add_document(self, doc_id: str, content: str, metadata: Optional[Dict[str, Any]] = None):
+        """Add a document to the Qdrant collection"""
+        try:
+            # Create embedding for the content
+            vector = self.embed_text(content)
+
+            # Prepare the point
+            point = PointStruct(
+                id=doc_id,
+                vector=vector,
+                payload={
+                    "content": content,
+                    "metadata": metadata or {}
+                }
+            )
+
+            # Upload to Qdrant
+            self.client.upsert(
+                collection_name=self.collection_name,
+                points=[point]
+            )
+
+            logger.info(f"Added document {doc_id} to collection")
+        except Exception as e:
+            logger.error(f"Error adding document: {str(e)}")
+            raise
+
+    def search(self, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
+        """Search for relevant documents based on query"""
+        try:
+            # Create embedding for the query
+            query_vector = self.embed_text(query)
+
+            # Perform search
+            search_results = self.client.search(
+                collection_name=self.collection_name,
+                query_vector=query_vector,
+                limit=top_k,
+                with_payload=True
+            )
+
+            # Extract content from results
+            results = []
+            for hit in search_results:
+                if hit.payload and 'content' in hit.payload:
+                    results.append({
+                        'id': hit.id,
+                        'content': hit.payload['content'],
+                        'score': hit.score,
+                        'metadata': hit.payload.get('metadata', {})
+                    })
+
+            logger.info(f"Found {len(results)} results for query")
+            return results
+
+        except Exception as e:
+            logger.error(f"Error searching Qdrant: {str(e)}")
+            return []
+
+    def get_relevant_content(self, query: str, top_k: int = 5) -> str:
+        """Get relevant content as a formatted string for RAG"""
+        try:
+            results = self.search(query, top_k)
+
+            if not results:
+                return "No relevant content found in the book."
+
+            # Format the results as a context string
+            formatted_results = []
+            for result in results:
+                formatted_results.append(f"Relevant Content:\n{result['content']}\n")
+
+            return "\n\n".join(formatted_results)
+
+        except Exception as e:
+            logger.error(f"Error getting relevant content: {str(e)}")
+            return "Error retrieving content from the book."
+
+# Global Qdrant instance (will be recreated on each cold start in serverless)
+qdrant_rag = None
+
+def get_qdrant_rag():
+    """Get or create the Qdrant RAG instance"""
+    global qdrant_rag
+    if qdrant_rag is None:
+        qdrant_rag = QdrantRAG()
+    return qdrant_rag
