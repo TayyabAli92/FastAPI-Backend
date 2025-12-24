@@ -56,7 +56,7 @@ class BookRAGAgent:
             logger.error(f"Error adding message to thread: {str(e)}")
             raise
 
-    def run_assistant(self, thread_id: str, context: str, user_message: str):
+    def run_assistant(self, thread_id: str, context: str, user_message: str, max_wait_time: int = 30, wait_interval: int = 2):
         """Run the assistant with provided context and user message"""
         try:
             # Add the user message with context to the thread
@@ -74,8 +74,6 @@ class BookRAGAgent:
 
             # Poll for completion (in a serverless environment, we need to handle this carefully)
             import time
-            max_wait_time = 60  # Maximum wait time in seconds
-            wait_interval = 2   # Wait interval in seconds
             elapsed_time = 0
 
             while run.status in ["queued", "in_progress"] and elapsed_time < max_wait_time:
@@ -130,5 +128,11 @@ def get_agent():
     """Get or create the RAG agent instance"""
     global rag_agent
     if rag_agent is None:
-        rag_agent = BookRAGAgent()
+        try:
+            rag_agent = BookRAGAgent()
+        except Exception as e:
+            logger.error(f"Error initializing agent: {str(e)}")
+            # Clear the failed instance
+            rag_agent = None
+            raise
     return rag_agent

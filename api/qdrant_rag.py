@@ -179,5 +179,11 @@ def get_qdrant_rag():
     """Get or create the Qdrant RAG instance"""
     global qdrant_rag
     if qdrant_rag is None:
-        qdrant_rag = QdrantRAG()
+        try:
+            qdrant_rag = QdrantRAG()
+        except Exception as e:
+            logger.error(f"Error initializing Qdrant RAG: {str(e)}")
+            # Clear the failed instance
+            qdrant_rag = None
+            raise
     return qdrant_rag

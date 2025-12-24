@@ -62,7 +62,8 @@ def run_rag_chat(message: str, selected_text: Optional[str] = None) -> str:
         thread = agent.create_thread()
 
         # Run the assistant with context and user message
-        response = agent.run_assistant(thread.id, context, message)
+        # Reduced timeout parameters for serverless environment
+        response = agent.run_assistant(thread.id, context, message, max_wait_time=30, wait_interval=1)
 
         # Clean up the thread
         try:
