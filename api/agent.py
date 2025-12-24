@@ -60,6 +60,10 @@ class BookRAGAgent:
         """Run the assistant with provided context and user message"""
         try:
             # Add the user message with context to the thread
+            # Limit context length to avoid token limits
+            if len(context) > 15000:  # Adjust as needed
+                context = context[:15000] + "... (truncated for API limits)"
+
             full_message = f"Context: {context}\n\nQuestion: {user_message}\n\nPlease answer based only on the provided context. Do not make up information."
 
             # Add the message to the thread

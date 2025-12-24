@@ -63,7 +63,8 @@ def run_rag_chat(message: str, selected_text: Optional[str] = None) -> str:
 
         # Run the assistant with context and user message
         # Reduced timeout parameters for serverless environment
-        response = agent.run_assistant(thread.id, context, message, max_wait_time=30, wait_interval=1)
+        # Using shorter max_wait_time to avoid timeout issues
+        response = agent.run_assistant(thread.id, context, message, max_wait_time=25, wait_interval=1)
 
         # Clean up the thread
         try:
@@ -75,7 +76,13 @@ def run_rag_chat(message: str, selected_text: Optional[str] = None) -> str:
 
     except Exception as e:
         logger.error(f"Error in RAG chat: {str(e)}")
-        return f"An error occurred while processing your request: {str(e)}"
+        # Return a user-friendly error message
+        if "timeout" in str(e).lower() or "time" in str(e).lower():
+            return "Request timed out. Please try again with a shorter query."
+        elif "api" in str(e).lower() or "key" in str(e).lower():
+            return "API configuration error. Please check your API keys."
+        else:
+            return "An error occurred while processing your request. Please try again."
 
 # FastAPI app for local testing (Vercel will use the handler directly)
 app = FastAPI()

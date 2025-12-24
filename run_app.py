@@ -60,7 +60,7 @@ def open_frontend():
         print("You can manually open frontend/book-rag-interface.html in your browser")
 
 def main():
-    print("🚀 Book RAG Agent Startup Script")
+    print("Book RAG Agent Startup Script")
     print("=" * 40)
 
     # Check if backend is running
@@ -81,7 +81,7 @@ def main():
         while server_thread.is_alive():
             time.sleep(1)
     except KeyboardInterrupt:
-        print("\n👋 Shutting down Book RAG Agent...")
+        print("\nShutting down Book RAG Agent...")
         sys.exit(0)
 
 if __name__ == "__main__":
