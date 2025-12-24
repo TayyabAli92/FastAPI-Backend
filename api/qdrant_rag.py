@@ -1,7 +1,7 @@
 import os
 from typing import List, Dict, Any, Optional
 from qdrant_client import QdrantClient
-from qdrant_client.http.models import PointStruct, VectorParams, Distance, SearchParams, Filter, FieldCondition, MatchValue
+from qdrant_client.http.models import PointStruct, VectorParams, Distance
 import google.generativeai as genai
 import logging
 import numpy as np
@@ -14,21 +14,35 @@ class QdrantRAG:
     """Qdrant integration for RAG functionality"""
 
     def __init__(self):
-        # Initialize Qdrant client
-        self.client = QdrantClient(
-            url=os.getenv("QDRANT_URL"),
-            api_key=os.getenv("QDRANT_API_KEY"),
-            # If using cloud, https is enabled by default
-            # If using local instance, you might need to set https=False
-        )
-
-        # Initialize Google Generative AI
+        # Initialize Google Generative AI first
         api_key = os.getenv("GEMINI_API_KEY")
         if api_key:
-            genai.configure(api_key=api_key)
-            logger.info("Google Generative AI configured")
+            try:
+                genai.configure(api_key=api_key)
+                logger.info("Google Generative AI configured")
+            except Exception as e:
+                logger.error(f"Failed to configure Google Generative AI: {str(e)}")
+                raise
         else:
             raise ValueError("GEMINI_API_KEY environment variable not set")
+
+        # Initialize Qdrant client
+        try:
+            qdrant_url = os.getenv("QDRANT_URL")
+            qdrant_api_key = os.getenv("QDRANT_API_KEY")
+
+            if not qdrant_url:
+                raise ValueError("QDRANT_URL environment variable not set")
+            if not qdrant_api_key:
+                raise ValueError("QDRANT_API_KEY environment variable not set")
+
+            self.client = QdrantClient(
+                url=qdrant_url,
+                api_key=qdrant_api_key,
+            )
+        except Exception as e:
+            logger.error(f"Failed to initialize Qdrant client: {str(e)}")
+            raise
 
         # Collection name
         self.collection_name = "books"
@@ -66,15 +80,15 @@ class QdrantRAG:
                 content=[text],
                 task_type="semantic_similarity"
             )
-            # The API returns a dictionary with 'embedding' key
-            # The value is the embedding vector as a list of floats
-            return response.embedding
-        except AttributeError:
-            # Handle case where response is dict-style
-            if hasattr(response, '__getitem__') and 'embedding' in response:
+
+            # The response should have an 'embedding' attribute
+            # Try both attribute access and dictionary access
+            if hasattr(response, 'embedding'):
+                return response.embedding
+            elif isinstance(response, dict) and 'embedding' in response:
                 return response['embedding']
             else:
-                logger.error(f"Unexpected API response format: {type(response)}")
+                logger.error(f"Unexpected API response format: {response}")
                 raise ValueError(f"Unexpected API response format: {response}")
         except Exception as e:
             logger.error(f"Error embedding text: {str(e)}")

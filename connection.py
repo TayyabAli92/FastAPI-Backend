@@ -16,8 +16,12 @@ from pydantic import BaseModel
 # Load environment variables
 load_dotenv()
 
-# Configure Gemini
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+# Configure Gemini (only if API key exists)
+gemini_api_key = os.getenv("GEMINI_API_KEY")
+if gemini_api_key:
+    genai.configure(api_key=gemini_api_key)
+else:
+    logging.warning("GEMINI_API_KEY environment variable not set")
 
 class Chunk(BaseModel):
     chunk_id: str
@@ -47,11 +51,6 @@ class ConnectionManager:
 
         # Initialize Gemini clients
         self.gemini_model = genai.GenerativeModel('gemini-2.0-flash')  # Using gemini-2.0-flash as specified
-        self.embedding_model = genai.embed_content(
-            model="models/embedding-001",
-            content=["sample text"],
-            task_type="retrieval_document"
-        )
 
     def get_gemini_client(self):
         """Get configured Gemini client for chat completion"""
@@ -75,7 +74,15 @@ class ConnectionManager:
                 content=[text],
                 task_type="retrieval_document"
             )
-            return response['embedding']
+
+            # Handle response based on its type (could be object or dict)
+            if hasattr(response, 'embedding'):
+                return response.embedding
+            elif isinstance(response, dict) and 'embedding' in response:
+                return response['embedding']
+            else:
+                logging.error(f"Unexpected embedding API response format: {response}")
+                raise ValueError(f"Unexpected embedding API response format: {response}")
         except Exception as e:
             logging.error(f"Error generating embedding: {e}")
             raise
