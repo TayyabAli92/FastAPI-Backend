@@ -168,5 +168,86 @@ async def chat_endpoint(request: ChatRequest):
         # Raise a generic error to avoid exposing internal details
         raise HTTPException(status_code=500, detail="Internal server error occurred while processing the request")
 
+# Additional endpoints to match what your frontend is looking for
+class AskRequest(BaseModel):
+    message: str
+    selected_text: Optional[str] = None
+    session_id: Optional[str] = None
+
+class AskResponse(BaseModel):
+    response: str
+    citations: List[Citation]
+    session_id: str
+    timestamp: str
+
+@app.post("/ask", response_model=AskResponse)
+async def ask_endpoint(request: AskRequest):
+    """Endpoint that matches your frontend's /ask request"""
+    # Convert AskRequest to ChatRequest format
+    chat_request = ChatRequest(
+        message=request.message,
+        selected_text=request.selected_text,
+        session_id=request.session_id
+    )
+
+    # Call the main chat endpoint logic
+    chat_response = await chat_endpoint(chat_request)
+
+    # Convert to AskResponse format
+    ask_response = AskResponse(
+        response=chat_response.response,
+        citations=chat_response.citations,
+        session_id=chat_response.session_id,
+        timestamp=chat_response.timestamp
+    )
+
+    return ask_response
+
+@app.post("/api/v1/rag", response_model=AskResponse)
+async def rag_endpoint(request: AskRequest):
+    """Endpoint that matches your frontend's /api/v1/rag request"""
+    # Convert AskRequest to ChatRequest format
+    chat_request = ChatRequest(
+        message=request.message,
+        selected_text=request.selected_text,
+        session_id=request.session_id
+    )
+
+    # Call the main chat endpoint logic
+    chat_response = await chat_endpoint(chat_request)
+
+    # Convert to AskResponse format
+    ask_response = AskResponse(
+        response=chat_response.response,
+        citations=chat_response.citations,
+        session_id=chat_response.session_id,
+        timestamp=chat_response.timestamp
+    )
+
+    return ask_response
+
+@app.post("/api/v1/ask-agent", response_model=AskResponse)
+async def ask_agent_endpoint(request: AskRequest):
+    """Endpoint that matches your frontend's /api/v1/ask-agent request"""
+    # Convert AskRequest to ChatRequest format
+    chat_request = ChatRequest(
+        message=request.message,
+        selected_text=request.selected_text,
+        session_id=request.session_id
+    )
+
+    # Call the main chat endpoint logic
+    chat_response = await chat_endpoint(chat_request)
+
+    # Convert to AskResponse format
+    ask_response = AskResponse(
+        response=chat_response.response,
+        citations=chat_response.citations,
+        session_id=chat_response.session_id,
+        timestamp=chat_response.timestamp
+    )
+
+    return ask_response
+
 # The ASGI application that Vercel will serve
 # The variable name 'app' is what Vercel looks for by default

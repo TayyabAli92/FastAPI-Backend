@@ -48,7 +48,7 @@ def test_api_structure():
     print("\nTesting API structure...")
 
     try:
-        from api.app import ChatRequest, ChatResponse, Citation
+        from api.app import ChatRequest, ChatResponse, Citation, AskRequest, AskResponse
         print("[OK] Pydantic models defined correctly")
     except Exception as e:
         print(f"[ERROR] Failed to define Pydantic models: {e}")
@@ -58,7 +58,7 @@ def test_api_structure():
         from api.app import app
         # Check if the required routes exist
         routes = [route.path for route in app.routes]
-        required_routes = ["/", "/health", "/chat"]
+        required_routes = ["/", "/health", "/chat", "/ask", "/api/v1/rag", "/api/v1/ask-agent"]
 
         for route in required_routes:
             if route in routes or f"{route}:0" in routes:
@@ -112,6 +112,9 @@ def main():
         print("   - GET / (root)")
         print("   - GET /health")
         print("   - POST /chat")
+        print("   - POST /ask")
+        print("   - POST /api/v1/rag")
+        print("   - POST /api/v1/ask-agent")
     else:
         print("[FAILURE] Some validations failed. Please fix the issues before deploying.")
         print("Check the error messages above for details.")
