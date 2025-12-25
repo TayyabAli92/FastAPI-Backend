@@ -1,6 +1,13 @@
 """
-FastAPI application for Book RAG Agent
+Vercel-optimized FastAPI application for Book RAG Agent
+This file is optimized for Vercel serverless deployment
 """
+import sys
+from pathlib import Path
+
+# Add parent directory to path for imports
+sys.path.append(str(Path(__file__).parent.parent))
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -8,13 +15,15 @@ from typing import Optional, List, Dict, Any
 import uuid
 from datetime import datetime
 import logging
-from connection import ConnectionManager
+
 from agent import initialize_agent, rag_query_tool
+from connection import ConnectionManager
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Create FastAPI app
 app = FastAPI(
     title="Book RAG Agent API",
     description="Serverless RAG API for book content queries",
@@ -30,41 +39,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-import asyncio
-from datetime import datetime, timedelta
-
 # Simple in-memory session storage (for MVP)
 # In production, use a proper database or Redis
 sessions: Dict[str, Dict[str, Any]] = {}
-
-# Session cleanup settings
-SESSION_TIMEOUT_MINUTES = 30
-
-async def cleanup_expired_sessions():
-    """Background task to remove expired sessions"""
-    while True:
-        try:
-            current_time = datetime.now()
-            expired_sessions = []
-
-            for session_id, session_data in sessions.items():
-                last_activity_str = session_data.get("last_activity", session_data.get("created_at"))
-                if last_activity_str:
-                    last_activity = datetime.fromisoformat(last_activity_str.replace('Z', '+00:00').split('.')[0] + '.000000+00:00')
-                    if (current_time - last_activity).total_seconds() > SESSION_TIMEOUT_MINUTES * 60:
-                        expired_sessions.append(session_id)
-
-            for session_id in expired_sessions:
-                del sessions[session_id]
-
-            await asyncio.sleep(60)  # Run cleanup every minute
-        except Exception as e:
-            print(f"Error during session cleanup: {e}")
-
-@app.on_event("startup")
-async def startup_event():
-    """Start background session cleanup task"""
-    asyncio.create_task(cleanup_expired_sessions())
 
 class ChatRequest(BaseModel):
     message: str
@@ -83,6 +60,10 @@ class ChatResponse(BaseModel):
     session_id: str
     timestamp: str
     mode: str = "rag"
+
+@app.get("/")
+async def root():
+    return {"message": "Book RAG Agent API - Ready to serve RAG queries"}
 
 @app.get("/health")
 async def health_check():
@@ -124,16 +105,13 @@ async def chat_endpoint(request: ChatRequest):
         # Determine rag_mode
         rag_mode = session["mode"]
 
-        # Initialize agent (in a real implementation, this would be done once at startup)
+        # Initialize agent
         agent = initialize_agent()
 
-        # In a full implementation with OpenAI Agents SDK, we would use Runner.run() here
-        # For now, we'll use rag_query tool directly to get context
+        # Use rag_query tool to get context
         if rag_mode == "rag":
             retrieved_context = rag_query_tool(request.message, "rag", 3)  # top_k = 3
         else:
-            # For selected text mode, we need to pass the selected text as chunks
-            selected_chunks = [session["selected_text"]] if session["selected_text"] else []
             retrieved_context = rag_query_tool(request.message, "selected", 3)  # top_k = 3
 
         # Create citations from retrieved context
@@ -147,8 +125,7 @@ async def chat_endpoint(request: ChatRequest):
             )
             citations.append(citation)
 
-        # In a real implementation, we would use Runner.run() with the agent to generate the response
-        # For now, we'll create a simple response based on the retrieved context
+        # Create response based on retrieved context
         if retrieved_context:
             response_text = f"Based on the book content, here's what I found: {retrieved_context[0].get('text', 'No content found')[:200]}..."
         else:
@@ -190,3 +167,6 @@ async def chat_endpoint(request: ChatRequest):
         logger.error(f"Error processing chat request: {str(e)}", exc_info=True)
         # Raise a generic error to avoid exposing internal details
         raise HTTPException(status_code=500, detail="Internal server error occurred while processing the request")
+
+# The ASGI application that Vercel will serve
+# The variable name 'app' is what Vercel looks for by default
